@@ -50,7 +50,7 @@ dependencies {
     ext {
         release_version = '1.54'
     }
-    compile "com.google.tango:sdk-base:${release_version}"
+    compile "com.google.tango:sdk-base:1.55"
     compile "com.google.tango:support-base:${release_version}"
 
 }
