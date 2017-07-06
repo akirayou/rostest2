@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.view.View;
 
 import org.ros.android.AppCompatRosActivity;
+import org.ros.android.RosAppCompatActivity;
 import org.ros.node.NodeConfiguration;
 import org.ros.node.NodeMainExecutor;
 
@@ -12,7 +13,7 @@ import org.ros.node.NodeMainExecutor;
 
 
 
-public class MainActivity extends AppCompatRosActivity {
+public class MainActivity extends RosAppCompatActivity {
     private TestTalker talker;
     public MainActivity() {
         // The RosActivity constructor configures the notification title and ticker
