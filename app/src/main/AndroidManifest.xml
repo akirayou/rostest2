@@ -19,7 +19,7 @@
         android:theme="@style/AppTheme"
         tools:replace="android:icon">
         <uses-library android:name="com.projecttango.libtango_device2" android:required="true" />"
-        <activity android:name=".MainActivity">
+        <activity android:name=".MainActivity"  android:screenOrientation="landscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

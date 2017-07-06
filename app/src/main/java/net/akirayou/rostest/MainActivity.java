@@ -55,8 +55,6 @@ public class MainActivity extends RosAppCompatActivity {
     private void requestCameraPermission() {
         if (ActivityCompat.shouldShowRequestPermissionRationale(this,
                 Manifest.permission.CAMERA)) {
-
-            Log.d(TAG, "shouldShowRequestPermissionRationale:追加説明");
             // 権限チェックした結果、持っていない場合はダイアログを出す
             new AlertDialog.Builder(this)
                     .setTitle("パーミッションの追加説明")
@@ -99,10 +97,10 @@ public class MainActivity extends RosAppCompatActivity {
         if (PermissionChecker.checkSelfPermission(
                 MainActivity.this, Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED) {
-            // パーミッションをリクエストする
             requestCameraPermission();
-            return;
         }
+        startTango();
+
     }
     private boolean rosInited=false;
     @Override
@@ -119,21 +117,11 @@ public class MainActivity extends RosAppCompatActivity {
 
     private Tango mTango=null;
     private TangoConfig mConfig=null;
-
-
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if(!rosInited)return;
-        // Initialize Tango Service as a normal Android Service. Since we call mTango.disconnect()
-        // in onPause, this will unbind Tango Service, so every time onResume gets called we
-        // should create a new Tango object.
+    private void startTango(){
         if(tangoEnabled){
             Log.e(TAG,"ignore double resume for tango");
             return; //Ha?
         }
-
         Log.i(TAG,"tangoStart on resume");
         mTango = new Tango(MainActivity.this, new Runnable() {
             // Pass in a Runnable to be called from UI thread when Tango is ready; this Runnable
@@ -163,13 +151,10 @@ public class MainActivity extends RosAppCompatActivity {
             }
         });
         tangoEnabled=true;
-    }
 
-    @Override
-    protected void onPause() {
-        super.onPause();
-        if(!rosInited)return;
-        synchronized (this) {
+    }
+    private void stopTango(){
+        synchronized (MainActivity.this) {
             try {
                 if(tangoEnabled) {
                     mTango.disconnect();
@@ -183,6 +168,15 @@ public class MainActivity extends RosAppCompatActivity {
             }
         }
     }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        stopTango();
+
+    }
+
+
 
     /**
      * Sets up the tango configuration object. Make sure mTango object is initialized before
