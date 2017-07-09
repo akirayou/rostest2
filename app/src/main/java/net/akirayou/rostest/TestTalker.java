@@ -14,6 +14,7 @@ public class TestTalker extends AbstractNodeMain {
     private String topic_name;
     private Publisher<std_msgs.String> publisher;
     private int count=0;
+    private boolean inited=false;
     public TestTalker(){
         topic_name="/chatter";
     }
@@ -41,9 +42,12 @@ public class TestTalker extends AbstractNodeMain {
                 Thread.sleep(1000);
             }
         });*/
+        inited=true;
     }
 
     public void kick(){
+        if(!inited)return;//Don't run before onStart
+
         /* send message*/
         count++;
         std_msgs.String str = publisher.newMessage();

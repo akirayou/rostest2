@@ -43,7 +43,7 @@ import java.net.URISyntaxException;
  */
 public abstract class RosAppCompatActivity extends AppCompatActivity {
 
-    protected static final int MASTER_CHOOSER_REQUEST_CODE = 0;
+    protected static final int MASTER_CHOOSER_REQUEST_CODE = 01;
 
     private final NodeMainExecutorServiceConnection nodeMainExecutorServiceConnection;
     private final String notificationTicker;
@@ -59,46 +59,45 @@ public abstract class RosAppCompatActivity extends AppCompatActivity {
         @Override
         public void execute(int requestCode, int resultCode, Intent data) {
             if (resultCode == RESULT_OK) {
-                if (requestCode == MASTER_CHOOSER_REQUEST_CODE) {
-                    String host;
-                    String networkInterfaceName = data.getStringExtra("ROS_MASTER_NETWORK_INTERFACE");
-                    // Handles the default selection and prevents possible errors
-                    if (networkInterfaceName == null || networkInterfaceName.equals("")) {
-                        host = getDefaultHostAddress();
-                    } else {
-                        try {
-                            NetworkInterface networkInterface = NetworkInterface.getByName(networkInterfaceName);
-                            host = InetAddressFactory.newNonLoopbackForNetworkInterface(networkInterface).getHostAddress();
-                        } catch (SocketException e) {
-                            throw new RosRuntimeException(e);
-                        }
-                    }
-                    nodeMainExecutorService.setRosHostname(host);
-                    if (data.getBooleanExtra("ROS_MASTER_CREATE_NEW", false)) {
-                        nodeMainExecutorService.startMaster(data.getBooleanExtra("ROS_MASTER_PRIVATE", true));
-                    } else {
-                        URI uri;
-                        try {
-                            uri = new URI(data.getStringExtra("ROS_MASTER_URI"));
-                        } catch (URISyntaxException e) {
-                            throw new RosRuntimeException(e);
-                        }
-                        nodeMainExecutorService.setMasterUri(uri);
-                    }
-                    // Run init() in a new thread as a convenience since it often requires network access.
-                    new AsyncTask<Void, Void, Void>() {
-                        @Override
-                        protected Void doInBackground(Void... params) {
-                            RosAppCompatActivity.this.init(nodeMainExecutorService);
-                            return null;
-                        }
-                    }.execute();
+                String host;
+                String networkInterfaceName = data.getStringExtra("ROS_MASTER_NETWORK_INTERFACE");
+                // Handles the default selection and prevents possible errors
+                if (networkInterfaceName == null || networkInterfaceName.equals("")) {
+                    host = getDefaultHostAddress();
                 } else {
-                    // Without a master URI configured, we are in an unusable state.
-                    nodeMainExecutorService.forceShutdown();
+                    try {
+                        NetworkInterface networkInterface = NetworkInterface.getByName(networkInterfaceName);
+                        host = InetAddressFactory.newNonLoopbackForNetworkInterface(networkInterface).getHostAddress();
+                    } catch (SocketException e) {
+                        throw new RosRuntimeException(e);
+                    }
                 }
+                nodeMainExecutorService.setRosHostname(host);
+                if (data.getBooleanExtra("ROS_MASTER_CREATE_NEW", false)) {
+                    nodeMainExecutorService.startMaster(data.getBooleanExtra("ROS_MASTER_PRIVATE", true));
+                } else {
+                    URI uri;
+                    try {
+                        uri = new URI(data.getStringExtra("ROS_MASTER_URI"));
+                    } catch (URISyntaxException e) {
+                        throw new RosRuntimeException(e);
+                    }
+                    nodeMainExecutorService.setMasterUri(uri);
+                }
+                // Run init() in a new thread as a convenience since it often requires network access.
+                new AsyncTask<Void, Void, Void>() {
+                    @Override
+                    protected Void doInBackground(Void... params) {
+                        RosAppCompatActivity.this.init(nodeMainExecutorService);
+                        return null;
+                    }
+                }.execute();
+            } else {
+                // Without a master URI configured, we are in an unusable state.
+                nodeMainExecutorService.forceShutdown();
             }
         }
+
     };
 
     private final class NodeMainExecutorServiceConnection implements ServiceConnection {
@@ -265,9 +264,13 @@ public abstract class RosAppCompatActivity extends AppCompatActivity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (onActivityResultCallback != null) {
-            onActivityResultCallback.execute(requestCode, resultCode, data);
+        if(masterChooserRequestCode==requestCode) {
+            if (onActivityResultCallback != null) {
+                onActivityResultCallback.execute(requestCode, resultCode, data);
+            }
+            super.onActivityResult(requestCode, resultCode, data);
+        }else {
+            super.onActivityResult(requestCode, resultCode, data);
         }
     }
 
