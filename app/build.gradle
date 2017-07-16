@@ -25,6 +25,11 @@ repositories {
     maven {
         url "https://github.com/rosjava/rosjava_mvn_repo/raw/master"
     }
+    maven {
+
+        url "https://dl.bintray.com/duanenielsen/maven"
+
+    }
     mavenLocal()
     jcenter()
 }
@@ -38,19 +43,24 @@ dependencies {
         exclude group: 'junit'
         exclude group: 'xml-apis'
     }
-    compile 'org.ros.rosjava_messages:std_msgs:[0.1,)'
-    compile 'org.ros.rosjava_messages:sensor_msgs:[0.1,)'
-    compile 'org.ros.rosjava_messages:geometry_msgs:[0.1,)'
-    
+    compile 'org.ros.tf2:tf2_ros:1.0.1', {
+        exclude group: 'junit'
+        exclude group: 'xml-apis'
+    }
 
-    compile 'com.android.support:appcompat-v7:26.+'
-    compile 'com.android.support.constraint:constraint-layout:1.0.2'
-    compile 'com.android.support:design:26.+'
-    testCompile 'junit:junit:4.12'
+
     ext {
         release_version = '1.54'
     }
-    compile "com.google.tango:sdk-base:1.55"
     compile "com.google.tango:support-base:${release_version}"
 
+    compile 'org.ros.rosjava_messages:std_msgs:[0.1,)'
+    compile 'org.ros.rosjava_messages:sensor_msgs:[0.1,)'
+    compile 'org.ros.rosjava_messages:geometry_msgs:[0.1,)'
+    compile 'org.ros.rosjava_messages:tf2_msgs:[0.1,)'
+    compile 'com.android.support:appcompat-v7:26.+'
+    compile 'com.android.support.constraint:constraint-layout:1.0.2'
+    compile 'com.android.support:design:26.+'
+    compile 'com.google.tango:sdk-base:1.55'
+    testCompile 'junit:junit:4.12'
 }

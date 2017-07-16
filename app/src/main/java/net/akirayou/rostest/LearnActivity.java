@@ -4,11 +4,10 @@ import android.Manifest;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.PermissionChecker;
 import android.support.v7.app.AlertDialog;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -28,35 +27,64 @@ import com.google.atap.tangoservice.TangoPointCloudData;
 import com.google.atap.tangoservice.TangoPoseData;
 import com.projecttango.tangosupport.TangoPointCloudManager;
 
-import org.ros.android.RosAppCompatActivity;
-import org.ros.message.Time;
-import org.ros.node.NodeConfiguration;
-import org.ros.node.NodeMainExecutor;
-import org.ros.tf2_ros.StaticTransformBroadcaster;
-import org.ros.tf2_ros.TransformBroadcaster;
-
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 
-import geometry_msgs.TransformStamped;
+public class LearnActivity extends AppCompatActivity {
+    private String targetName="";
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_learn);
+        targetName = getIntent().getExtras().getString("targetName");
+        findViewById(R.id.bt_learn).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String uuid=mTango.saveAreaDescription();
+                try {
+                    OutputStream os = openFileOutput("uuid.txt", MODE_PRIVATE | MODE_APPEND);
+                    PrintWriter pw = new PrintWriter(os);
+                    pw.println(uuid);
+                    pw.println(targetName);
+                    Log.i(TAG,"SAVED ADF"+uuid+"  "+targetName);
+                    pw.close();
+                    os.close();
+                } catch (FileNotFoundException e) {
+                    Log.e(TAG,"cannot write uuid list");
+                    showsToastAndFinishOnUiThread("Can not wrie uuid list");
+                } catch (IOException e) {
+                    Log.e(TAG,"IO error in writing uuid list");
+                    showsToastAndFinishOnUiThread("IO error on writing uuid list");
 
 
-public class MainActivity extends RosAppCompatActivity {
+                }
 
+                finish();
+            }
+        });
+        //for tango Initialize
+        preview=new TangoCameraPreview(this);
+        LinearLayout ll = (LinearLayout)findViewById(R.id.surfaceView);
+        ll.addView(preview);
+        if (PermissionChecker.checkSelfPermission(
+                LearnActivity.this, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            requestCameraPermission();
+        }
+        startActivityForResult(Tango.getRequestPermissionIntent(
+                Tango.PERMISSIONTYPE_ADF_LOAD_SAVE), Tango.TANGO_INTENT_ACTIVITYCODE);
 
-    //TF2 broad caster
-    private  TransformBroadcaster mTB=null;
-    private TransformStamped tfs=null ;
-    private TransformStamped stfs=null;
-    private org.ros.tf2_ros.StaticTransformBroadcaster mSTB=null;
-    //example of publisher
-    private TestTalker talker;
+    }
 
     //for TTango
     private boolean tangoEnabled=false;
     private TangoCameraPreview preview;
     private TangoPointCloudManager mPointCloudManager;
     //For Logging(Debug)
-    private static final String TAG = MainActivity.class.getSimpleName();
+    private static final String TAG = LearnActivity.class.getSimpleName();
 
 
     //Camera request for Tango preview
@@ -70,7 +98,7 @@ public class MainActivity extends RosAppCompatActivity {
                     .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
-                            ActivityCompat.requestPermissions(MainActivity.this,
+                            ActivityCompat.requestPermissions(LearnActivity.this,
                                     new String[]{Manifest.permission.CAMERA},
                                     REQUEST_CODE_CAMERA_PERMISSION);
                         }
@@ -93,38 +121,29 @@ public class MainActivity extends RosAppCompatActivity {
         // Create a new Tango Configuration and enable the HelloMotionTrackingActivity API.
         TangoConfig config = tango.getConfig(TangoConfig.CONFIG_TYPE_DEFAULT);
         config.putBoolean(TangoConfig.KEY_BOOLEAN_MOTIONTRACKING, true);
-        config.putBoolean(TangoConfig.KEY_BOOLEAN_DEPTH, true);
-        //config.putInt(TangoConfig.KEY_INT_DEPTH_MODE,TangoConfig.TANGO_DEPTH_MODE_XYZ_IJ);
-        config.putInt(TangoConfig.KEY_INT_DEPTH_MODE, TangoConfig.TANGO_DEPTH_MODE_POINT_CLOUD);
-
+        config.putBoolean(TangoConfig.KEY_BOOLEAN_LEARNINGMODE, true);
         config.putBoolean(TangoConfig.KEY_BOOLEAN_COLORCAMERA,true);
-        config.putInt(TangoConfig.KEY_INT_RUNTIME_DEPTH_FRAMERATE,4);
 
         // Tango Service should automatically attempt to recover when it enters an invalid state.
         config.putBoolean(TangoConfig.KEY_BOOLEAN_AUTORECOVERY, true);
         return config;
     }
     private void startTango(){
+        Log.i(TAG,"===============START TANGO==============");
         if(tangoEnabled){
             Log.e(TAG,"ignore double resume for tango");
             return; //Ha?
         }
 
-        /*
-        startActivityForResult(Tango.getRequestPermissionIntent(
-                Tango.PERMISSIONTYPE_MOTION_TRACKING), Tango.TANGO_INTENT_ACTIVITYCODE);
-        startActivityForResult(Tango.getRequestPermissionIntent(
-                Tango.PERMISSIONTYPE_ADF_LOAD_SAVE), Tango.TANGO_INTENT_ACTIVITYCODE);
-        */
         Log.i(TAG,"tangoStart on resume");
-        mTango = new Tango(MainActivity.this, new Runnable() {
+        mTango = new Tango(LearnActivity.this, new Runnable() {
             // Pass in a Runnable to be called from UI thread when Tango is ready; this Runnable
             // will be running on a new thread.
             // When Tango is ready, we can call Tango functions safely here only when there are no
             // UI thread changes involved.
             @Override
             public void run() {
-                synchronized (MainActivity.this) {
+                synchronized (LearnActivity.this) {
                     try {
                         mConfig = setupTangoConfig(mTango);
 
@@ -151,7 +170,8 @@ public class MainActivity extends RosAppCompatActivity {
 
     }
     private void stopTango(){
-        synchronized (MainActivity.this) {
+        Log.i(TAG,"===============STOP TANGO==============");
+        synchronized (LearnActivity.this) {
             try {
                 if(tangoEnabled) {
                     mTango.disconnect();
@@ -182,27 +202,7 @@ public class MainActivity extends RosAppCompatActivity {
         mTango.connectListener(framePairs, new Tango.TangoUpdateCallback() {
             @Override
             public void onPoseAvailable(final TangoPoseData pose) {
-                final  double poseSpan=100e-3;
-                if (pose.statusCode == pose.POSE_VALID && rosNodeEnable && pose.timestamp-lastPoseTime>poseSpan) {
-                    final float pos[] = pose.getTranslationAsFloats();
-                    final float rot[] = pose.getRotationAsFloats();
-                    //X=y Y=-z Z=x
-                    tfs.getTransform().getTranslation().setX(pos[0]);
-                    tfs.getTransform().getTranslation().setY(pos[1]);
-                    tfs.getTransform().getTranslation().setZ(pos[2]);
-                    tfs.getTransform().getRotation().setX(rot[0]);
-                    tfs.getTransform().getRotation().setY(rot[1]);
-                    tfs.getTransform().getRotation().setZ(rot[2]);
-                    tfs.getTransform().getRotation().setW(rot[3]);
 
-
-                    tfs.getHeader().setFrameId("tango_base");
-                    tfs.setChildFrameId("tango_device");
-                    tfs.getHeader().setStamp(new Time(pose.timestamp));
-                    mTB.sendTransform(tfs);
-                    lastPoseTime=pose.timestamp;
-                    //Log.w(TAG,"pose");
-                }
                 runOnUiThread(new Runnable() {
                     public void run() {
                         ((TextView) findViewById(R.id.txPose)).setText(pose.toString());
@@ -210,127 +210,36 @@ public class MainActivity extends RosAppCompatActivity {
             }
 
             @Override
-            public void onPointCloudAvailable(TangoPointCloudData pointCloud) {
-                mPointCloudManager.updatePointCloud(pointCloud);
-                // We are not using onPointCloudAvailable for this app.
-                Log.w(TAG,"pointcloud");
-
-                int numPoints=pointCloud.numPoints;
-
-                int nofElement=pointCloud.points.capacity();
-                Log.i(TAG,String.valueOf(nofElement)+" "+ String.valueOf(numPoints));
-
-
-                pubPC.publish(pointCloud);
-                //super.onPointCloudAvailable(pointCloud);
-            }
+            public void onPointCloudAvailable(TangoPointCloudData pointCloud) {}
 
             @Override
             public void onTangoEvent(final TangoEvent event) {
-                // Ignoring TangoEvents.
-                //Log.i(TAG,event.toString());
-
+                runOnUiThread(new Runnable() {
+                    public void run() {
+                        ((TextView) findViewById(R.id.txEvent)).setText(event.toString());
+                    }});
             }
 
             @Override
             public void onFrameAvailable(int cameraId) {
-                // We are not using onFrameAvailable for this application.
                 if(cameraId== TangoCameraIntrinsics.TANGO_CAMERA_COLOR){
                     preview.onFrameAvailable(); //Need to call every time. Do not skip.
-
                 }
             }
         });
     }
 
-    public MainActivity() {
-        super("rostest2", "rostest2");
 
-    }
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        findViewById(R.id.bt_kick).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                talker.kick();
-            }
-        });
-        preview=new TangoCameraPreview(this);
-        LinearLayout ll = (LinearLayout)findViewById(R.id.surfaceView);
-        ll.addView(preview);
-
-        if (PermissionChecker.checkSelfPermission(
-                MainActivity.this, Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED) {
-            requestCameraPermission();
-        }
-        mPointCloudManager = new TangoPointCloudManager();
-    }
-    private boolean rosEnable=false;
-    private boolean rosNodeEnable=false;
-    private PubPointCloud pubPC;
-    //For ROS
-    @Override
-    protected void init(NodeMainExecutor nodeMainExecutor) { //for ROS
-
-        NodeConfiguration nodeConfiguration = NodeConfiguration.newPublic(getRosHostname());
-        nodeConfiguration.setMasterUri(getMasterUri());
-
-        talker=new TestTalker();
-        nodeMainExecutor.execute(talker, nodeConfiguration);
-
-        pubPC=new PubPointCloud();
-        nodeMainExecutor.execute(pubPC, nodeConfiguration);
-
-        mTB = new TransformBroadcaster();
-
-
-
-
-        nodeMainExecutor.execute(mTB, nodeConfiguration);
-        tfs = mTB.newMessage();
-
-
-        mSTB = new StaticTransformBroadcaster();
-        nodeMainExecutor.execute(mSTB, nodeConfiguration);
-
-        stfs= mSTB.newMessage();
-        stfs.getTransform().getTranslation().setX(0);
-        stfs.getTransform().getTranslation().setY(0);
-        stfs.getTransform().getTranslation().setZ(0);
-        stfs.getTransform().getRotation().setX(0.70710678);
-        stfs.getTransform().getRotation().setY(-0.70710678);
-        stfs.getTransform().getRotation().setZ(0);
-        stfs.getTransform().getRotation().setW(0);
-
-
-        stfs.getHeader().setFrameId("tango_device");
-        stfs.setChildFrameId("tango_depth_device");
-
-        rosEnable=true;
-
-
-        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                mSTB.sendTransform(stfs);
-                rosNodeEnable = true;
-            }
-        }, 1000);
-    }
-    @Override
-    protected void onResume(){
-        super.onResume();
+    protected void onStart(){
+        super.onStart();
         startTango();
-
     }
 
     @Override
-    protected void onDestroy() {
+    protected void onStop() {
         stopTango();
-        super.onDestroy();
+        super.onStop();
     }
 
 
@@ -338,9 +247,11 @@ public class MainActivity extends RosAppCompatActivity {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                Toast.makeText(MainActivity.this,res, Toast.LENGTH_LONG).show();
+                Toast.makeText(LearnActivity.this,res, Toast.LENGTH_LONG).show();
                 finish();
             }
         });
     }
+
+
 }
