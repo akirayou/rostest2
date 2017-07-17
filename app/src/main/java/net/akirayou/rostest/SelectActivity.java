@@ -10,17 +10,18 @@ import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.Toast;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import com.google.atap.tangoservice.Tango;
+import com.google.atap.tangoservice.TangoAreaDescriptionMetaData;
+
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 
 public class SelectActivity extends AppCompatActivity {
     private static final String TAG = SelectActivity.class.getSimpleName();
-    private ArrayList<String> uuids=new ArrayList<String>();
+    private ArrayList<String> uuids;
     private ArrayList<String> names=new ArrayList<String>();
-
+    private Tango mTango=null;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -43,37 +44,54 @@ public class SelectActivity extends AppCompatActivity {
                 startActivity(intent);
             }
         });
-        uuids.clear();
-        names.clear();
-        uuids.add("");
-        names.add("No use");
         Log.i(TAG,"==============READING ADF UUID===========");
-        try {
-            //BufferedReader in = Files.newBufferedReader("uuid.txt", StandardCharsets.UTF_8);
-            BufferedReader in = new BufferedReader(new InputStreamReader( openFileInput("uuid.txt")));
-
-            while(true){
-                String s;
-
-                s=in.readLine();if(s==null)break;
-                String uuid=s;
-                uuids.add(uuid);
-                Log.i(TAG,"READ UUID"+uuid);
-                s=in.readLine();if(s==null)break;
-                String name=s;
-                names.add(name+uuid);
-            }
-            in.close();
-        } catch (FileNotFoundException e) {
-            //showsToastAndFinishOnUiThread("No learned ADF yet");
-            Log.e(TAG,"Can not open uuid");
-        }catch (IOException e) {
-            //showsToastAndFinishOnUiThread("ADF readError");
-            Log.e(TAG,"IO error in reading uuid");
-        }
-        ArrayAdapter<String> ad= new ArrayAdapter<String>(this,android.R.layout.simple_spinner_item,names);
-        ((Spinner)findViewById(R.id.sp_uuid)).setAdapter(ad);
+        startActivityForResult(Tango.getRequestPermissionIntent(
+                Tango.PERMISSIONTYPE_ADF_LOAD_SAVE), Tango.TANGO_INTENT_ACTIVITYCODE);
     }
+    @Override
+    protected void onStart(){
+        super.onStart();
+        names.clear();
+        mTango = new Tango(this, new Runnable() {
+            @Override
+            public void run() {
+                synchronized (SelectActivity.this) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            uuids = mTango.listAreaDescriptions();
+                            for (int i = 0; i < uuids.size(); i++) {
+                                TangoAreaDescriptionMetaData metadata = new TangoAreaDescriptionMetaData();
+                                metadata = mTango.loadAreaDescriptionMetaData(uuids.get(i));
+                                byte[] nameBytes = metadata.get(TangoAreaDescriptionMetaData.KEY_NAME);
+                                byte[] epoch = metadata.get(TangoAreaDescriptionMetaData.KEY_DATE_MS_SINCE_EPOCH);
+                                ByteBuffer buf = ByteBuffer.wrap(epoch);
+                                buf.order(ByteOrder.LITTLE_ENDIAN);
+                                long epochVal = buf.getLong();
+                                if (nameBytes != null) {
+                                    names.add(new String(nameBytes)+"-"+String.valueOf(epochVal));
+                                } else {
+                                    names.add(uuids.get(i)+"-"+Long.toUnsignedString(epochVal));
+                                }
+
+                            }
+
+                            uuids.add("");
+                            names.add("No use");
+
+                            ArrayAdapter<String> ad = new ArrayAdapter<String>(SelectActivity.this, android.R.layout.simple_spinner_item, names);
+                            ((Spinner) findViewById(R.id.sp_uuid)).setAdapter(ad);
+                            mTango.disconnect();
+                        }
+
+                    });
+                }
+            }
+        });
+
+
+    }
+
 
     private void showsToastAndFinishOnUiThread(final String res) {
         runOnUiThread(new Runnable() {

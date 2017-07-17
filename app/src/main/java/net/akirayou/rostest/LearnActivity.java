@@ -15,6 +15,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.atap.tangoservice.Tango;
+import com.google.atap.tangoservice.TangoAreaDescriptionMetaData;
 import com.google.atap.tangoservice.TangoCameraIntrinsics;
 import com.google.atap.tangoservice.TangoCameraPreview;
 import com.google.atap.tangoservice.TangoConfig;
@@ -27,10 +28,6 @@ import com.google.atap.tangoservice.TangoPointCloudData;
 import com.google.atap.tangoservice.TangoPoseData;
 import com.projecttango.tangosupport.TangoPointCloudManager;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.util.ArrayList;
 
 public class LearnActivity extends AppCompatActivity {
@@ -44,24 +41,10 @@ public class LearnActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 String uuid=mTango.saveAreaDescription();
-                try {
-                    OutputStream os = openFileOutput("uuid.txt", MODE_PRIVATE | MODE_APPEND);
-                    PrintWriter pw = new PrintWriter(os);
-                    pw.println(uuid);
-                    pw.println(targetName);
-                    Log.i(TAG,"SAVED ADF"+uuid+"  "+targetName);
-                    pw.close();
-                    os.close();
-                } catch (FileNotFoundException e) {
-                    Log.e(TAG,"cannot write uuid list");
-                    showsToastAndFinishOnUiThread("Can not wrie uuid list");
-                } catch (IOException e) {
-                    Log.e(TAG,"IO error in writing uuid list");
-                    showsToastAndFinishOnUiThread("IO error on writing uuid list");
-
-
-                }
-
+                TangoAreaDescriptionMetaData metadata = new TangoAreaDescriptionMetaData();
+                metadata = mTango.loadAreaDescriptionMetaData(uuid);
+                metadata.set(TangoAreaDescriptionMetaData.KEY_NAME, targetName.getBytes());
+                mTango.saveAreaDescriptionMetadata(uuid, metadata);
                 finish();
             }
         });
