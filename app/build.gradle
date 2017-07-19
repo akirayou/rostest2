@@ -63,4 +63,6 @@ dependencies {
     compile 'com.android.support:design:26.+'
     compile 'com.google.tango:sdk-base:1.55'
     testCompile 'junit:junit:4.12'
+    compile 'com.obsez.android.lib.filechooser:filechooser:1.1.5'
+
 }
