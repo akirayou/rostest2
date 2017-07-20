@@ -108,22 +108,21 @@ public class SelectActivity extends AppCompatActivity {
                 ActivityCompat.requestPermissions(SelectActivity.this, permissions, /*REQ CODE*/ 2);
             }
         } else {
-
             int i = ((Spinner) findViewById(R.id.sp_uuid)).getSelectedItemPosition();
             final String uuid = uuids.get(i);
-            final String file = basePath().toString() + "/" + uuid + ".adf";
-            MediaScannerConnection.scanFile(SelectActivity.this, new String[]{basePath().getAbsolutePath()}, null, null);
+            final String file = basePath().toString() ;
+
+            MediaScannerConnection.scanFile(getApplicationContext(), new String[]{basePath().getAbsolutePath()+"/"+uuid}, null, null);
             runInTango(new Runnable() {
                 @Override
                 public void run() {
                     mTango.exportAreaDescriptionFile(uuid, file);
-                    showsToastAndFinishOnUiThread("EXPORT:" + basePath().getAbsolutePath());
+                    //showsToastAndFinishOnUiThread("EXPORT:" + basePath().getAbsolutePath());
                 }
             });
         }
     }
     protected void importADF(){
-
         new ChooserDialog().with(SelectActivity.this)
                 .withStartFile(basePath().toString())
                 .withChosenListener(new ChooserDialog.Result() {
