@@ -11,6 +11,7 @@ import android.os.Environment;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
@@ -33,6 +34,7 @@ public class SelectActivity extends AppCompatActivity {
     private ArrayList<String> uuids;
     private ArrayList<String> names = new ArrayList<String>();
     private Tango mTango = null;
+    private ArrayAdapter<String> sp_uuid_ad;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,10 +77,18 @@ public class SelectActivity extends AppCompatActivity {
             }
         });
 
-
+        sp_uuid_ad = new ArrayAdapter<String>(SelectActivity.this, android.R.layout.simple_spinner_item);
+        ((Spinner) findViewById(R.id.sp_uuid)).setAdapter(sp_uuid_ad);
 
         startActivityForResult(Tango.getRequestPermissionIntent(
                 Tango.PERMISSIONTYPE_ADF_LOAD_SAVE), Tango.TANGO_INTENT_ACTIVITYCODE);
+        runOnTango(new Runnable() {
+            @Override
+            public void run() {
+                loadUuidList();
+            }
+        });
+
     }
 
     private File basePath(){
@@ -112,9 +122,10 @@ public class SelectActivity extends AppCompatActivity {
             @Override
             public void run() {
                 MediaScannerConnection.scanFile(getApplicationContext(), new String[]{basePath().getAbsolutePath() + "/" + uuid}, null, null);
-                 runOnTango(new Runnable() {
+                runOnTango(new Runnable() {
                     @Override
                     public void run() {
+                        Log.i(TAG,"runOnTango in delete");
                         mTango.deleteAreaDescription(uuid);
                         showsToastAndFinishOnUiThread("DELETE:" + uuid);
                         loadUuidList();
@@ -160,7 +171,7 @@ public class SelectActivity extends AppCompatActivity {
                 @Override
                 public void run() {
                     MediaScannerConnection.scanFile(getApplicationContext(), new String[]{basePath().getAbsolutePath() + "/" + uuid}, null, null);
-                     runOnTango(new Runnable() {
+                    runOnTango(new Runnable() {
                         @Override
                         public void run() {
                             mTango.exportAreaDescriptionFile(uuid, basePath().toString());
@@ -180,7 +191,7 @@ public class SelectActivity extends AppCompatActivity {
                     public void onChoosePath(String path, File pathFile) {
                         //showsToastAndFinishOnUiThread( "FILE: " + path);
                         final String r_path=path;
-                         runOnTango(new Runnable() {
+                        runOnTango(new Runnable() {
                             @Override
                             public void run() {
                                 mTango.importAreaDescriptionFile(r_path);
@@ -191,6 +202,19 @@ public class SelectActivity extends AppCompatActivity {
                 })
                 .build()
                 .show();
+
+    }
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        //reload uuid list after import(and export[no need])
+        if(requestCode==Tango.TANGO_INTENT_ACTIVITYCODE ){//Tango import Request Intent
+            runOnTango(new Runnable() {
+                @Override
+                public void run() {
+                    loadUuidList();
+                }
+            });
+        }
 
     }
     private void runOnTango(final Runnable run){
@@ -213,46 +237,40 @@ public class SelectActivity extends AppCompatActivity {
     }
     private void loadUuidList(){
         names.clear();
-         runOnTango(new Runnable() {
-            @Override
-            public void run() {
-                uuids = mTango.listAreaDescriptions();
-                for (int i = 0; i < uuids.size(); i++) {
-                    TangoAreaDescriptionMetaData metadata = new TangoAreaDescriptionMetaData();
-                    metadata = mTango.loadAreaDescriptionMetaData(uuids.get(i));
-                    byte[] nameBytes = metadata.get(TangoAreaDescriptionMetaData.KEY_NAME);
-                    byte[] epoch = metadata.get(TangoAreaDescriptionMetaData.KEY_DATE_MS_SINCE_EPOCH);
-                    ByteBuffer buf = ByteBuffer.wrap(epoch);
-                    buf.order(ByteOrder.LITTLE_ENDIAN);
-                    long epochVal = buf.getLong();
-                    String name;
-                    if (nameBytes != null) {
-                        name = new String(nameBytes);
-                    }else {
-                        name = "NO-NAME";
-                    }
-                    SimpleDateFormat fmt = new SimpleDateFormat("yyyyMMdd_HH:mm:ss");
-                    //fmt.setTimeZone(TimeZone.getTimeZone("UTC"));
-                    names.add(name+"/"+fmt.format(new Date(epochVal))+"/"+uuids.get(i));
-                }
-                uuids.add(0,"");
-                names.add(0,"No use");
-                ArrayAdapter<String> ad = new ArrayAdapter<String>(SelectActivity.this, android.R.layout.simple_spinner_item);
-                ad.clear();
-                ad.addAll(names);
-                ((Spinner) findViewById(R.id.sp_uuid)).setAdapter(ad);
-                ((Spinner) findViewById(R.id.sp_uuid)).setSelection(0);
-                ad.notifyDataSetChanged();
+        uuids = mTango.listAreaDescriptions();
+        for (int i = 0; i < uuids.size(); i++) {
+            TangoAreaDescriptionMetaData metadata = new TangoAreaDescriptionMetaData();
+            metadata = mTango.loadAreaDescriptionMetaData(uuids.get(i));
+            byte[] nameBytes = metadata.get(TangoAreaDescriptionMetaData.KEY_NAME);
+            byte[] epoch = metadata.get(TangoAreaDescriptionMetaData.KEY_DATE_MS_SINCE_EPOCH);
+            ByteBuffer buf = ByteBuffer.wrap(epoch);
+            buf.order(ByteOrder.LITTLE_ENDIAN);
+            long epochVal = buf.getLong();
+            String name;
+            if (nameBytes != null) {
+                name = new String(nameBytes);
+            }else {
+                name = "NO-NAME";
             }
-        });
+            SimpleDateFormat fmt = new SimpleDateFormat("yyyyMMdd_HH:mm:ss");
+            //fmt.setTimeZone(TimeZone.getTimeZone("UTC"));
+            names.add(name+"/"+fmt.format(new Date(epochVal))+"/"+uuids.get(i));
+        }
 
+        uuids.add(0,"");
+        names.add(0,"No use");
+        Log.e(TAG,names.toString());
+        ((Spinner) findViewById(R.id.sp_uuid)).setSelection(0,true);
+        ArrayAdapter<String> ad=(ArrayAdapter<String>) ((Spinner) findViewById(R.id.sp_uuid)).getAdapter();
+        ad.clear();
+        ad.addAll(names);
+        ad.notifyDataSetChanged();
+        ((Spinner) findViewById(R.id.sp_uuid)).invalidate();
     }
 
-    @Override
-    protected void onStart(){
-        super.onStart();
-        loadUuidList();
-    }
+
+
+
 
 
     private void showsToastAndFinishOnUiThread(final String res) {
