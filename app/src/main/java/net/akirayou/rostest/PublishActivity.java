@@ -26,6 +26,7 @@ import com.google.atap.tangoservice.TangoInvalidException;
 import com.google.atap.tangoservice.TangoOutOfDateException;
 import com.google.atap.tangoservice.TangoPointCloudData;
 import com.google.atap.tangoservice.TangoPoseData;
+import com.google.atap.tangoservice.experimental.TangoImageBuffer;
 
 import org.ros.android.RosAppCompatActivity;
 import org.ros.message.Time;
@@ -47,12 +48,15 @@ public class PublishActivity extends RosAppCompatActivity {
     private org.ros.tf2_ros.StaticTransformBroadcaster mSTB=null;
     //example of publisher
     private TestTalker talker;
+    private PubImg pubImg;
     private String targetUuid="";
     //for TTango
     private boolean tangoEnabled=false;
     private TangoCameraPreview preview;
     //For Logging(Debug)
     private static final String TAG = PublishActivity.class.getSimpleName();
+
+
 
 
     //Camera request for Tango preview
@@ -181,6 +185,7 @@ public class PublishActivity extends RosAppCompatActivity {
 
     //Tango EventHandler
     private double lastPoseTime=0;
+    private int imgCount=0;
     private void attachTango() {
         Log.i(TAG,"attachTango");
         // Lock configuration and connect to Tango.
@@ -230,12 +235,12 @@ public class PublishActivity extends RosAppCompatActivity {
             @Override
             public void onPointCloudAvailable(TangoPointCloudData pointCloud) {
                 // We are not using onPointCloudAvailable for this app.
-                Log.w(TAG,"pointcloud");
+                //Log.w(TAG,"pointcloud");
 
                 int numPoints=pointCloud.numPoints;
 
                 int nofElement=pointCloud.points.capacity();
-                Log.i(TAG,String.valueOf(nofElement)+" "+ String.valueOf(numPoints));
+                //Log.i(TAG,String.valueOf(nofElement)+" "+ String.valueOf(numPoints));
 
 
                 pubPC.publish(pointCloud);
@@ -253,7 +258,31 @@ public class PublishActivity extends RosAppCompatActivity {
             public void onFrameAvailable(int cameraId) {
                 // We are not using onFrameAvailable for this application.
                 if(cameraId== TangoCameraIntrinsics.TANGO_CAMERA_COLOR){
+
                     preview.onFrameAvailable(); //Need to call every time. Do not skip.
+
+                }
+            }
+        });
+
+        //Image Reciver
+        mTango.experimentalConnectOnFrameListener(TangoCameraIntrinsics.TANGO_CAMERA_COLOR, new Tango.OnFrameAvailableListener() {
+            @Override
+            public void onFrameAvailable(final TangoImageBuffer buffer, int i) {
+                if(i!=TangoCameraIntrinsics.TANGO_CAMERA_COLOR)return;
+                imgCount++;
+                if(imgCount%10==0) {
+                    //final TangoImageBuffer buffer2=buffer;
+                    //buffer2.data=buffer.data.duplicate();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            pubImg.kick(buffer);
+
+
+                        }
+                    });
+
 
                 }
             }
@@ -289,6 +318,9 @@ public class PublishActivity extends RosAppCompatActivity {
 
         talker=new TestTalker();
         nodeMainExecutor.execute(talker, nodeConfiguration);
+
+        pubImg=new PubImg();
+        nodeMainExecutor.execute(pubImg, nodeConfiguration);
 
         pubPC=new PubPointCloud();
         nodeMainExecutor.execute(pubPC, nodeConfiguration);
@@ -326,19 +358,20 @@ public class PublishActivity extends RosAppCompatActivity {
             public void run() {
                 mSTB.sendTransform(stfs);
                 rosNodeEnable = true;
+                startTango();
             }
         }, 1000);
+
     }
     @Override
     protected void onStart(){
-        super.onStart();
         if(rosEnable) startTango();
-
+        super.onStart();
     }
 
     @Override
     protected void onStop() {
-        if(rosEnable)stopTango();
+        if(tangoEnabled)stopTango();
         super.onStop();
     }
 

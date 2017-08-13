@@ -144,7 +144,7 @@ public class LearnActivity extends AppCompatActivity {
                         showsToastAndFinishOnUiThread("tango error");
                     } catch (TangoInvalidException e) {
                         Log.e(TAG, "tango invalid", e);
-                        showsToastAndFinishOnUiThread("TANGOOOOOO invalid");
+                        showsToastAndFinishOnUiThread("tango invalid");
                     }
                 }
             }

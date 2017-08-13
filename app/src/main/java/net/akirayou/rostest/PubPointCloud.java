@@ -66,6 +66,7 @@ public class PubPointCloud extends AbstractNodeMain {
 
 
         ChannelBuffer cb= ChannelBuffers.wrappedBuffer(b);
+
         sensor_msgs.PointCloud2 c=publisher.newMessage();
         c.getHeader().setFrameId("tango_depth_device");
         c.getHeader().setStamp(new Time(pointCloud.timestamp));
@@ -76,9 +77,9 @@ public class PubPointCloud extends AbstractNodeMain {
         c.setRowStep(4*nofElement);
         c.setFields(pfl);
         c.setData(cb);
-
         publisher.publish(c);
-
+        b=null;
+        cb=null;
 
     }
 }

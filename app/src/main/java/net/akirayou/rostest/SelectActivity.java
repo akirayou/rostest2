@@ -36,10 +36,25 @@ public class SelectActivity extends AppCompatActivity {
     private Tango mTango = null;
     private ArrayAdapter<String> sp_uuid_ad;
 
+
+    private boolean readyADF=false;
+    private void onReadyToADF(){
+        readyADF=true;
+        runOnTango(new Runnable() {
+            @Override
+            public void run() {
+                loadUuidList();
+            }
+        });
+    }
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_select);
+
+        startActivityForResult(Tango.getRequestPermissionIntent(
+                Tango.PERMISSIONTYPE_ADF_LOAD_SAVE), Tango.TANGO_INTENT_ACTIVITYCODE);
+
         findViewById(R.id.bt_publish).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -79,16 +94,12 @@ public class SelectActivity extends AppCompatActivity {
 
         sp_uuid_ad = new ArrayAdapter<String>(SelectActivity.this, android.R.layout.simple_spinner_item);
         ((Spinner) findViewById(R.id.sp_uuid)).setAdapter(sp_uuid_ad);
-
-        startActivityForResult(Tango.getRequestPermissionIntent(
-                Tango.PERMISSIONTYPE_ADF_LOAD_SAVE), Tango.TANGO_INTENT_ACTIVITYCODE);
-        runOnTango(new Runnable() {
+        if(readyADF)runOnTango(new Runnable() {
             @Override
             public void run() {
                 loadUuidList();
             }
         });
-
     }
 
     private File basePath(){
@@ -207,13 +218,8 @@ public class SelectActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         //reload uuid list after import(and export[no need])
-        if(requestCode==Tango.TANGO_INTENT_ACTIVITYCODE ){//Tango import Request Intent
-            runOnTango(new Runnable() {
-                @Override
-                public void run() {
-                    loadUuidList();
-                }
-            });
+        if(requestCode==Tango.TANGO_INTENT_ACTIVITYCODE  && resultCode == RESULT_OK){//Tango import Request Intent
+            onReadyToADF();
         }
 
     }
