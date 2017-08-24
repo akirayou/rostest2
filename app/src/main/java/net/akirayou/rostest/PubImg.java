@@ -22,8 +22,8 @@ public class PubImg extends AbstractNodeMain {
     private Publisher<sensor_msgs.Image> publisher;
     private static final String TAG="pubImg";
     public ChannelBuffer  cb;
-    public PubImg(){
-        topic_name="/image";
+    public PubImg(String topic_name){
+        this.topic_name=topic_name;
         cb= ChannelBuffers.dynamicBuffer(ByteOrder.LITTLE_ENDIAN,1920*1080*2);
         cb.writeZero(1920*1080*2);//dummy write
         cb.resetWriterIndex();
@@ -42,6 +42,10 @@ public class PubImg extends AbstractNodeMain {
         img.setEncoding("mono8");
         img.getHeader().setFrameId("tango_device");
         inited=true;
+    }
+    public boolean hasSubscribers(){
+        if(!inited)return false;
+        return publisher.hasSubscribers();
     }
     public void kick(TangoImageBuffer  buffer){
         if(!inited)return;//Don't run before onStart

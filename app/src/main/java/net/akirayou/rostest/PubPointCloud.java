@@ -26,8 +26,8 @@ public class PubPointCloud extends AbstractNodeMain {
     private String topic_name;
     private Publisher<sensor_msgs.PointCloud2> publisher;
     private boolean inited=false;
-    public PubPointCloud(){
-        topic_name="/points";
+    public PubPointCloud(String topic_name){
+        this.topic_name=topic_name;
     }
     @Override
     public GraphName getDefaultNodeName() {
@@ -54,7 +54,10 @@ public class PubPointCloud extends AbstractNodeMain {
         inited=true;
 
     }
-
+    public boolean hasSubscribers(){
+        if(!inited)return false;
+        return publisher.hasSubscribers();
+    }
     public void publish(TangoPointCloudData pointCloud){
         if(!inited)return;//Don't run before onStart
         if(!publisher.hasSubscribers())return;

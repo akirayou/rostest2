@@ -10,7 +10,6 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.PermissionChecker;
 import android.support.v7.app.AlertDialog;
 import android.util.Log;
-import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -47,7 +46,6 @@ public class PublishActivity extends RosAppCompatActivity {
     private TransformStamped stfs=null;
     private org.ros.tf2_ros.StaticTransformBroadcaster mSTB=null;
     //example of publisher
-    private TestTalker talker;
     private PubImg pubImg;
     private String targetUuid="";
     //for TTango
@@ -236,15 +234,11 @@ public class PublishActivity extends RosAppCompatActivity {
             public void onPointCloudAvailable(TangoPointCloudData pointCloud) {
                 // We are not using onPointCloudAvailable for this app.
                 //Log.w(TAG,"pointcloud");
-
+                if(!pubPC.hasSubscribers())return;
                 int numPoints=pointCloud.numPoints;
-
                 int nofElement=pointCloud.points.capacity();
                 //Log.i(TAG,String.valueOf(nofElement)+" "+ String.valueOf(numPoints));
-
-
                 pubPC.publish(pointCloud);
-                //super.onPointCloudAvailable(pointCloud);
             }
 
             @Override
@@ -258,9 +252,7 @@ public class PublishActivity extends RosAppCompatActivity {
             public void onFrameAvailable(int cameraId) {
                 // We are not using onFrameAvailable for this application.
                 if(cameraId== TangoCameraIntrinsics.TANGO_CAMERA_COLOR){
-
                     preview.onFrameAvailable(); //Need to call every time. Do not skip.
-
                 }
             }
         });
@@ -271,19 +263,15 @@ public class PublishActivity extends RosAppCompatActivity {
             public void onFrameAvailable(final TangoImageBuffer buffer, int i) {
                 if(i!=TangoCameraIntrinsics.TANGO_CAMERA_COLOR)return;
                 imgCount++;
-                if(imgCount%10==0) {
+                if(imgCount%10==0 && pubImg.hasSubscribers()) {
                     //final TangoImageBuffer buffer2=buffer;
                     //buffer2.data=buffer.data.duplicate();
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
                             pubImg.kick(buffer);
-
-
                         }
                     });
-
-
                 }
             }
         });
@@ -297,13 +285,6 @@ public class PublishActivity extends RosAppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        findViewById(R.id.bt_kick).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                talker.kick();
-            }
-        });
-
         targetUuid = getIntent().getExtras().getString("targetUuid");
     }
     private boolean rosEnable=false;
@@ -312,28 +293,16 @@ public class PublishActivity extends RosAppCompatActivity {
     //For ROS
     @Override
     protected void init(NodeMainExecutor nodeMainExecutor) { //for ROS
-
         NodeConfiguration nodeConfiguration = NodeConfiguration.newPublic(getRosHostname());
         nodeConfiguration.setMasterUri(getMasterUri());
-
-        talker=new TestTalker();
-        nodeMainExecutor.execute(talker, nodeConfiguration);
-
-        pubImg=new PubImg();
+        pubImg=new PubImg("tango/image");
         nodeMainExecutor.execute(pubImg, nodeConfiguration);
-
-        pubPC=new PubPointCloud();
+        pubPC=new PubPointCloud("tango/points");
         nodeMainExecutor.execute(pubPC, nodeConfiguration);
-
         mTB = new TransformBroadcaster();
-
-
-
 
         nodeMainExecutor.execute(mTB, nodeConfiguration);
         tfs = mTB.newMessage();
-
-
         mSTB = new StaticTransformBroadcaster();
         nodeMainExecutor.execute(mSTB, nodeConfiguration);
 
@@ -345,8 +314,6 @@ public class PublishActivity extends RosAppCompatActivity {
         stfs.getTransform().getRotation().setY(-0.70710678);
         stfs.getTransform().getRotation().setZ(0);
         stfs.getTransform().getRotation().setW(0);
-
-
         stfs.getHeader().setFrameId("tango_device");
         stfs.setChildFrameId("tango_depth_device");
 
@@ -360,12 +327,12 @@ public class PublishActivity extends RosAppCompatActivity {
                 rosNodeEnable = true;
                 startTango();
             }
-        }, 1000);
+        }, 500);
 
     }
     @Override
     protected void onStart(){
-        if(rosEnable) startTango();
+        if(rosEnable && !tangoEnabled) startTango();
         super.onStart();
     }
 
