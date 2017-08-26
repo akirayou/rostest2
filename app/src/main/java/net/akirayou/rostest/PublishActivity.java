@@ -47,6 +47,7 @@ public class PublishActivity extends RosAppCompatActivity {
     private org.ros.tf2_ros.StaticTransformBroadcaster mSTB=null;
     //example of publisher
     private PubImg pubImg;
+    private PubDanger pubDanger;
     private String targetUuid="";
     //for TTango
     private boolean tangoEnabled=false;
@@ -216,7 +217,6 @@ public class PublishActivity extends RosAppCompatActivity {
                     tfs.getTransform().getRotation().setZ(rot[2]);
                     tfs.getTransform().getRotation().setW(rot[3]);
 
-
                     tfs.getHeader().setFrameId("tango_base");
                     tfs.setChildFrameId("tango_device");
                     tfs.getHeader().setStamp(new Time(pose.timestamp));
@@ -232,13 +232,16 @@ public class PublishActivity extends RosAppCompatActivity {
 
             @Override
             public void onPointCloudAvailable(TangoPointCloudData pointCloud) {
-                // We are not using onPointCloudAvailable for this app.
+                //TODO: run on other thread
                 //Log.w(TAG,"pointcloud");
-                if(!pubPC.hasSubscribers())return;
-                int numPoints=pointCloud.numPoints;
-                int nofElement=pointCloud.points.capacity();
-                //Log.i(TAG,String.valueOf(nofElement)+" "+ String.valueOf(numPoints));
-                pubPC.publish(pointCloud);
+
+                if(pubPC.hasSubscribers()) {
+                    int numPoints = pointCloud.numPoints;
+                    int nofElement = pointCloud.points.capacity();
+                    //Log.i(TAG,String.valueOf(nofElement)+" "+ String.valueOf(numPoints));
+                    pubPC.publish(pointCloud);
+                }
+                pubDanger.kick((short)0);//Dummy always safe
             }
 
             @Override
@@ -279,7 +282,6 @@ public class PublishActivity extends RosAppCompatActivity {
 
     public PublishActivity() {
         super("rostest2", "rostest2");
-
     }
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -295,6 +297,9 @@ public class PublishActivity extends RosAppCompatActivity {
     protected void init(NodeMainExecutor nodeMainExecutor) { //for ROS
         NodeConfiguration nodeConfiguration = NodeConfiguration.newPublic(getRosHostname());
         nodeConfiguration.setMasterUri(getMasterUri());
+
+        pubDanger=new PubDanger();
+        nodeMainExecutor.execute(pubDanger,nodeConfiguration);
         pubImg=new PubImg("tango/image");
         nodeMainExecutor.execute(pubImg, nodeConfiguration);
         pubPC=new PubPointCloud("tango/points");
@@ -305,6 +310,7 @@ public class PublishActivity extends RosAppCompatActivity {
         tfs = mTB.newMessage();
         mSTB = new StaticTransformBroadcaster();
         nodeMainExecutor.execute(mSTB, nodeConfiguration);
+
 
         stfs= mSTB.newMessage();
         stfs.getTransform().getTranslation().setX(0);
