@@ -22,7 +22,7 @@ import sensor_msgs.PointField;
  * Created by akira on 17/07/04.
  */
 
-public class PubPointCloud extends AbstractNodeMain {
+ class PubPointCloud extends AbstractNodeMain {
     private String topic_name;
     private Publisher<sensor_msgs.PointCloud2> publisher;
     private boolean inited=false;

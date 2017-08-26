@@ -17,7 +17,7 @@ import org.ros.node.topic.Publisher;
  * Created by akira on 17/07/30.
  */
 
-public class PubImg extends AbstractNodeMain {
+ class PubImg extends AbstractNodeMain {
     private String topic_name;
     private Publisher<sensor_msgs.Image> publisher;
     private static final String TAG="pubImg";
