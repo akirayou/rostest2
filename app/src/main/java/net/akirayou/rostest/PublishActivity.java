@@ -238,10 +238,19 @@ public class PublishActivity extends RosAppCompatActivity {
                 if(pubPC.hasSubscribers()) {
                     int numPoints = pointCloud.numPoints;
                     int nofElement = pointCloud.points.capacity();
-                    //Log.i(TAG,String.valueOf(nofElement)+" "+ String.valueOf(numPoints));
+                    //Log.i(TAG,String.valueOf(nofElement)+" "+ String.valueOf(numPoints))
                     pubPC.publish(pointCloud);
                 }
-                pubDanger.kick((short)0);//Dummy always safe
+
+                short danger =0;
+                for(int i=0;i<pointCloud.numPoints;i++) {
+                    float z=pointCloud.points.get(i*4+2);
+                    float c=pointCloud.points.get(i*4+3);
+                    if(c>0.1 && z<0.4)danger++;
+
+                }
+                pubDanger.kick(danger);//Dummy always safe
+
             }
 
             @Override
