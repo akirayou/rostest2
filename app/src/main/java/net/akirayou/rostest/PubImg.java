@@ -6,6 +6,7 @@ import com.google.atap.tangoservice.experimental.TangoImageBuffer;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
+import org.ros.concurrent.CancellableLoop;
 import org.ros.message.Time;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
@@ -34,7 +35,7 @@ import org.ros.node.topic.Publisher;
     }
     private boolean inited = false;
     private sensor_msgs.Image img;
-
+    private ConnectedNode node;
     @Override
     public void onStart(final ConnectedNode connectedNode) {
         publisher = connectedNode.newPublisher(topic_name, sensor_msgs.Image._TYPE);
@@ -42,6 +43,7 @@ import org.ros.node.topic.Publisher;
         img.setEncoding("mono8");
         img.getHeader().setFrameId("tango_device");
         inited=true;
+        node=connectedNode;
     }
     public boolean hasSubscribers(){
         if(!inited)return false;
@@ -124,7 +126,7 @@ import org.ros.node.topic.Publisher;
         */
 
 
-        img.getHeader().setStamp(new Time(buffer.timestamp));
+        img.getHeader().setStamp( node.getCurrentTime());
         img.setHeight(buffer.height/skip);
         img.setWidth(buffer.width/skip);
         //img.setEncoding("yuv422");

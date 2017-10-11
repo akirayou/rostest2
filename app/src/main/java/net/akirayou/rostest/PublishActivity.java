@@ -27,14 +27,19 @@ import com.google.atap.tangoservice.TangoPointCloudData;
 import com.google.atap.tangoservice.TangoPoseData;
 import com.google.atap.tangoservice.experimental.TangoImageBuffer;
 
+import org.ros.address.InetAddressFactory;
 import org.ros.android.RosAppCompatActivity;
 import org.ros.message.Time;
 import org.ros.node.NodeConfiguration;
 import org.ros.node.NodeMainExecutor;
 import org.ros.tf2_ros.StaticTransformBroadcaster;
 import org.ros.tf2_ros.TransformBroadcaster;
+import org.ros.time.NtpTimeProvider;
 
+import java.io.IOException;
+import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.concurrent.Executors;
 
 import geometry_msgs.TransformStamped;
 
@@ -219,7 +224,7 @@ public class PublishActivity extends RosAppCompatActivity {
 
                     tfs.getHeader().setFrameId("tango_base");
                     tfs.setChildFrameId("tango_device");
-                    tfs.getHeader().setStamp(new Time(pose.timestamp));
+                    tfs.getHeader().setStamp( nodeConfiguration.getTimeProvider().getCurrentTime()  );
                     mTB.sendTransform(tfs);
                     lastPoseTime=pose.timestamp;
                     //Log.w(TAG,"pose");
@@ -301,11 +306,22 @@ public class PublishActivity extends RosAppCompatActivity {
     private boolean rosEnable=false;
     private boolean rosNodeEnable=false;
     private PubPointCloud pubPC;
+    private NodeConfiguration nodeConfiguration;
+
     //For ROS
     @Override
     protected void init(NodeMainExecutor nodeMainExecutor) { //for ROS
-        NodeConfiguration nodeConfiguration = NodeConfiguration.newPublic(getRosHostname());
+        nodeConfiguration = NodeConfiguration.newPublic(getRosHostname());
         nodeConfiguration.setMasterUri(getMasterUri());
+        
+        //Incase of use NTP time (android can not set NTP time as system time
+        NtpTimeProvider tp=new NtpTimeProvider(InetAddressFactory.newFromHostString("10.0.1.100"), Executors.newScheduledThreadPool(4));
+        try {
+            tp.updateTime();
+        }catch(IOException e){
+            //Do nothing
+        }
+        nodeConfiguration.setTimeProvider(tp);
 
         pubDanger=new PubDanger();
         nodeMainExecutor.execute(pubDanger,nodeConfiguration);

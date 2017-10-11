@@ -34,9 +34,11 @@ import sensor_msgs.PointField;
         return GraphName.of("rostest/pubpointcloud");
     }
     private ArrayList<PointField> pfl;
+    private ConnectedNode node;
 
     @Override
     public void onStart(final ConnectedNode connectedNode) {
+        node=connectedNode;
         publisher = connectedNode.newPublisher(topic_name, PointCloud2._TYPE);
         publisher.setLatchMode(true);
         pfl=new ArrayList<>(4);
@@ -72,7 +74,7 @@ import sensor_msgs.PointField;
 
         sensor_msgs.PointCloud2 c=publisher.newMessage();
         c.getHeader().setFrameId("tango_depth_device");
-        c.getHeader().setStamp(new Time(pointCloud.timestamp));
+        c.getHeader().setStamp(node.getCurrentTime());
         c.setIsDense(false);
         c.setHeight(1);
         c.setWidth(pointCloud.numPoints);
