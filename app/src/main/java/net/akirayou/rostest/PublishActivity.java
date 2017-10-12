@@ -3,6 +3,7 @@ package net.akirayou.rostest;
 import android.Manifest;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -29,6 +30,7 @@ import com.google.atap.tangoservice.experimental.TangoImageBuffer;
 
 import org.ros.address.InetAddressFactory;
 import org.ros.android.RosAppCompatActivity;
+import org.ros.exception.RosRuntimeException;
 import org.ros.message.Time;
 import org.ros.node.NodeConfiguration;
 import org.ros.node.NodeMainExecutor;
@@ -38,6 +40,10 @@ import org.ros.time.NtpTimeProvider;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.concurrent.Executors;
 
@@ -50,10 +56,14 @@ public class PublishActivity extends RosAppCompatActivity {
     private TransformStamped tfs=null ;
     private TransformStamped stfs=null;
     private org.ros.tf2_ros.StaticTransformBroadcaster mSTB=null;
-    //example of publisher
+
     private PubImg pubImg;
     private PubDanger pubDanger;
     private String targetUuid="";
+    private String masterIp="";
+    private String masterPort="";
+    private String ntpIp="";
+
     //for TTango
     private boolean tangoEnabled=false;
     private TangoCameraPreview preview;
@@ -296,33 +306,73 @@ public class PublishActivity extends RosAppCompatActivity {
 
     public PublishActivity() {
         super("rostest2", "rostest2");
+
     }
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
         targetUuid = getIntent().getExtras().getString("targetUuid");
+        masterIp = getIntent().getExtras().getString("masterIp");
+        masterPort = getIntent().getExtras().getString("masterPort");
+        ntpIp = getIntent().getExtras().getString("ntpIp");
+
     }
     private boolean rosEnable=false;
     private boolean rosNodeEnable=false;
     private PubPointCloud pubPC;
     private NodeConfiguration nodeConfiguration;
 
+    private void setMaster(NodeMainExecutor nodeMainExecutor){
+        String host=InetAddressFactory.newNonLoopback().getHostAddress();
+        Log.i(TAG,"ROS_HOST:"+host);
+        nodeMainExecutorService.setRosHostname(host);
+        if(!masterIp.equals("")) {
+            String masterURIs = "http://" + masterIp + ":" + masterPort;
+            try {
+                URI masterURI = new URI(masterURIs);
+                nodeMainExecutorService.setMasterUri(masterURI);
+            } catch (URISyntaxException e) {
+                showsToastAndFinishOnUiThread("wrong Master URI switch to local master");
+                masterIp = "";
+            }
+        }
+        if(masterIp.equals("")) {
+            nodeMainExecutorService.startMaster(false);
+        }
+    }
+
+    @Override
+    public void startMasterChooser(){
+        //init(nodeMainExecutorService);
+        setMaster(nodeMainExecutorService);
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... params) {
+                init(nodeMainExecutorService);
+                return null;
+            }
+        }.execute();
+    }
     //For ROS
     @Override
     protected void init(NodeMainExecutor nodeMainExecutor) { //for ROS
+        //setMaster(nodeMainExecutor);
         nodeConfiguration = NodeConfiguration.newPublic(getRosHostname());
         nodeConfiguration.setMasterUri(getMasterUri());
-        
-        //Incase of use NTP time (android can not set NTP time as system time
-        NtpTimeProvider tp=new NtpTimeProvider(InetAddressFactory.newFromHostString("10.0.1.100"), Executors.newScheduledThreadPool(4));
-        try {
-            tp.updateTime();
-        }catch(IOException e){
-            //Do nothing
-        }
-        nodeConfiguration.setTimeProvider(tp);
 
+        //Incase of use NTP time (android can not set NTP time as system time
+        if(!ntpIp.equals("")) {
+            NtpTimeProvider tp = new NtpTimeProvider(InetAddressFactory.newFromHostString(ntpIp), Executors.newScheduledThreadPool(4));
+            try {
+                tp.updateTime();
+            } catch (IOException e) {
+                showsToastAndFinishOnUiThread("NTP error but runs anyway");
+                //Do nothing
+            }
+            nodeConfiguration.setTimeProvider(tp);
+        }
         pubDanger=new PubDanger();
         nodeMainExecutor.execute(pubDanger,nodeConfiguration);
         pubImg=new PubImg("tango/image");

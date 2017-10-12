@@ -2,8 +2,10 @@ package net.akirayou.rostest;
 
 import android.Manifest;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.media.MediaScannerConnection;
 import android.os.Bundle;
@@ -47,14 +49,39 @@ public class SelectActivity extends AppCompatActivity {
             }
         });
     }
+
+    private void connectPrefEditText(int id, final String prefName, String defaultValue){
+        final SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
+        ((EditText) findViewById(id)).setText( prefs.getString(prefName,defaultValue));
+        findViewById(id).setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View view, boolean b) {
+                if(!b) {
+                    SharedPreferences.Editor editor=prefs.edit();
+                    editor.putString(prefName, ((EditText) view).getText().toString());
+                    editor.apply();
+                }
+            }
+        });
+    }
+    private String getEditText(int id){
+       return  ((EditText) findViewById(id)).getText().toString();
+    }
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_select);
+        connectPrefEditText(R.id.etxt_ip,"masterIp","10.0.1.101");
+        connectPrefEditText(R.id.etxt_port,"masterPort","11311");
+        connectPrefEditText(R.id.etxt_ntp,"ntpIp","10.0.1.100");
+
 
         startActivityForResult(Tango.getRequestPermissionIntent(
                 Tango.PERMISSIONTYPE_ADF_LOAD_SAVE), Tango.TANGO_INTENT_ACTIVITYCODE);
 
+        /////////////////////
+        //PUBLISH clicked
+        ////////////////////
         findViewById(R.id.bt_publish).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -62,14 +89,20 @@ public class SelectActivity extends AppCompatActivity {
                 int i = ((Spinner) findViewById(R.id.sp_uuid)).getSelectedItemPosition();
                 String uuid = uuids.get(i);
                 intent.putExtra("targetUuid", uuid);
+                intent.putExtra("masterIp", getEditText(R.id.etxt_ip));
+                intent.putExtra("masterPort", getEditText(R.id.etxt_port));
+                intent.putExtra("ntpIp", getEditText(R.id.etxt_ntp));
                 startActivity(intent);
             }
         });
+        ///////////////////////
+        //LEARN clicked
+        //////////////////////
         findViewById(R.id.bt_learn).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent(getApplicationContext(), LearnActivity.class);
-                intent.putExtra("targetName", ((EditText) findViewById(R.id.et_newName)).getText().toString());
+                intent.putExtra("targetName", getEditText(R.id.et_newName));
                 startActivity(intent);
             }
         });
@@ -92,7 +125,7 @@ public class SelectActivity extends AppCompatActivity {
             }
         });
 
-        sp_uuid_ad = new ArrayAdapter<String>(SelectActivity.this, android.R.layout.simple_spinner_item);
+        sp_uuid_ad = new ArrayAdapter<>(SelectActivity.this, android.R.layout.simple_spinner_item);
         ((Spinner) findViewById(R.id.sp_uuid)).setAdapter(sp_uuid_ad);
         if(readyADF)runOnTango(new Runnable() {
             @Override
